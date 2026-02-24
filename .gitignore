@@ -1,0 +1,11 @@
+# Data files - too large for GitHub
+data/*
+!data/.gitkeep
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Results
+results/*
+!results/.gitkeep
