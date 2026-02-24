@@ -1,0 +1,8 @@
+numpy
+matplotlib
+nilearn
+nibabel
+scikit-learn
+torch
+torchvision
+pillow
