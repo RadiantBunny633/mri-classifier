@@ -1,267 +1,239 @@
 """
 Visualizations comparing CNN architectures
+Generates per-class metrics + confusion matrix for each model individually
 """
 
-import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
 import numpy as np
+import matplotlib.pyplot as plt
+import sys
+import os
+import json
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support, classification_report
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from data_loader import load_dataset, split_dataset
+from model_comparison import ShallowCNN, CurrentCNN, DeepCNN
 
 
-def plot_accuracy_comparison():
-    """Bar chart comparing CNN architectures"""
-    
-    models = ['Shallow CNN\n(2 conv layers)', 'Current CNN\n(3 conv layers)', 'Deep CNN\n(4 conv layers)']
-    accuracies = [95.0, 96.25, 94.17]
-    colors = ['#3498db', '#2ecc71', '#e74c3c']
-    
-    plt.figure(figsize=(10, 6))
-    bars = plt.bar(models, accuracies, color=colors, edgecolor='black', linewidth=1.2)
-    
-    # Add value labels on bars
-    for bar, acc in zip(bars, accuracies):
-        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3, 
-                 f'{acc:.2f}%', ha='center', fontsize=14, fontweight='bold')
-    
-    plt.title('CNN Architecture Comparison - Test Accuracy', fontsize=16, fontweight='bold')
-    plt.ylabel('Test Accuracy (%)', fontsize=12)
-    plt.ylim(90, 100)
-    
-    # Add a horizontal line at best accuracy
-    plt.axhline(y=96.25, color='green', linestyle='--', alpha=0.5, label='Best (3 conv)')
-    plt.legend()
-    
-    plt.tight_layout()
-    plt.savefig('results/cnn_comparison_accuracy.png', dpi=150)
-    plt.close()
-    print("Saved: results/cnn_comparison_accuracy.png")
+def load_model(model_class, model_path, num_classes, device):
+    """Load a saved model from disk"""
+    model = model_class(num_classes=num_classes).to(device)
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.eval()
+    return model
 
 
-def plot_architecture_complexity():
-    """Compare model complexity"""
-    
-    models = ['Shallow CNN', 'Current CNN', 'Deep CNN']
-    conv_layers = [2, 3, 4]
-    filters = [64, 128, 256]  # max filters in each
-    parameters = [530000, 8500000, 17000000]  # approximate
-    accuracies = [95.0, 96.25, 94.17]
-    
-    fig, axes = plt.subplots(1, 3, figsize=(14, 5))
-    colors = ['#3498db', '#2ecc71', '#e74c3c']
-    
-    # Plot 1: Conv layers
-    axes[0].bar(models, conv_layers, color=colors)
-    axes[0].set_title('Number of Conv Layers', fontsize=12, fontweight='bold')
-    axes[0].set_ylabel('Layers')
-    for i, v in enumerate(conv_layers):
-        axes[0].text(i, v + 0.1, str(v), ha='center', fontweight='bold')
-    
-    # Plot 2: Max filters
-    axes[1].bar(models, filters, color=colors)
-    axes[1].set_title('Max Filters', fontsize=12, fontweight='bold')
-    axes[1].set_ylabel('Filters')
-    for i, v in enumerate(filters):
-        axes[1].text(i, v + 5, str(v), ha='center', fontweight='bold')
-    
-    # Plot 3: Accuracy
-    axes[2].bar(models, accuracies, color=colors)
-    axes[2].set_title('Test Accuracy', fontsize=12, fontweight='bold')
-    axes[2].set_ylabel('Accuracy (%)')
-    axes[2].set_ylim(90, 100)
-    for i, v in enumerate(accuracies):
-        axes[2].text(i, v + 0.2, f'{v}%', ha='center', fontweight='bold')
-    
-    plt.suptitle('CNN Architecture Comparison', fontsize=14, fontweight='bold')
-    plt.tight_layout()
-    plt.savefig('results/cnn_complexity_comparison.png', dpi=150)
-    plt.close()
-    print("Saved: results/cnn_complexity_comparison.png")
+def get_predictions(model, X_test_tensor, device):
+    """Run model on test data and return predictions"""
+    with torch.no_grad():
+        outputs = model(X_test_tensor.to(device))
+        _, predictions = torch.max(outputs, 1)
+    return predictions.cpu().numpy()
 
 
-def plot_accuracy_vs_depth():
-    """Line plot showing accuracy vs depth"""
-    
-    layers = [2, 3, 4]
-    accuracies = [95.0, 96.25, 94.17]
-    
-    plt.figure(figsize=(8, 6))
-    plt.plot(layers, accuracies, 'o-', markersize=15, linewidth=2, color='#2ecc71')
-    
-    # Highlight best
-    best_idx = accuracies.index(max(accuracies))
-    plt.scatter([layers[best_idx]], [accuracies[best_idx]], s=300, color='gold', 
-                edgecolor='black', linewidth=2, zorder=5, label='Best')
-    
-    # Add labels
-    for i, (l, a) in enumerate(zip(layers, accuracies)):
-        plt.annotate(f'{a:.2f}%', (l, a), textcoords="offset points", 
-                     xytext=(0, 15), ha='center', fontsize=12, fontweight='bold')
-    
-    plt.title('Test Accuracy vs CNN Depth', fontsize=14, fontweight='bold')
-    plt.xlabel('Number of Convolutional Layers', fontsize=12)
-    plt.ylabel('Test Accuracy (%)', fontsize=12)
-    plt.xticks([2, 3, 4])
-    plt.ylim(93, 98)
-    plt.grid(True, alpha=0.3)
-    plt.legend()
-    
-    plt.tight_layout()
-    plt.savefig('results/accuracy_vs_depth.png', dpi=150)
-    plt.close()
-    print("Saved: results/accuracy_vs_depth.png")
+def plot_model_results(y_true, y_pred, class_names, model_name, save_name, test_accuracy):
+    """
+    Generate the combined per-class metrics + confusion matrix chart
+    matching the style of the existing CNN results visualization.
+    """
+    # Short labels for display
+    short_names = ['Mild\nDemented', 'Moderate\nDemented', 'Non\nDemented', 'Very Mild\nDemented']
+    cm_labels = ['Mild', 'Moderate', 'Non', 'Very Mild']
 
+    # Compute per-class precision, recall, f1
+    precision, recall, f1, support = precision_recall_fscore_support(y_true, y_pred, average=None, zero_division=0)
+    cm = confusion_matrix(y_true, y_pred)
 
-def plot_summary_table():
-    """Create a visual summary table"""
-    
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.axis('off')
-    
-    table_data = [
-        ['Shallow CNN', '2', '32 → 64', '95.00%'],
-        ['Current CNN', '3', '32 → 64 → 128', '96.25%'],
-        ['Deep CNN', '4', '32 → 64 → 128 → 256', '94.17%']
-    ]
-    
-    columns = ['Model', 'Conv Layers', 'Filter Progression', 'Test Accuracy']
-    
-    table = ax.table(
-        cellText=table_data,
-        colLabels=columns,
-        cellLoc='center',
-        loc='center',
-        colColours=['#3498db', '#3498db', '#3498db', '#3498db']
-    )
-    
-    table.auto_set_font_size(False)
-    table.set_fontsize(12)
-    table.scale(1.2, 2)
-    
-    # Style header
-    for i in range(len(columns)):
-        table[(0, i)].set_text_props(fontweight='bold', color='white')
-    
-    # Highlight best row
-    for i in range(len(columns)):
-        table[(2, i)].set_facecolor('#d5f5e3')
-    
-    plt.title('CNN Architecture Comparison Summary', fontsize=14, fontweight='bold', pad=20)
-    plt.tight_layout()
-    plt.savefig('results/cnn_comparison_table.png', dpi=150, bbox_inches='tight')
-    plt.close()
-    print("Saved: results/cnn_comparison_table.png")
+    # Create figure with two subplots side by side
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    fig.suptitle(f'{model_name} — MRI Dementia Classification', fontsize=16, fontweight='bold')
 
-def plot_confusion_matrices():
-    """Side by side confusion matrices for all three CNNs"""
-    
-    # Confusion matrix data from each model
-    # Format: [[TN, FP, ...], [FN, TP, ...], ...]
-    # Rows = actual, Cols = predicted
-    # Order: Mild, Moderate, Non, VeryMild
-    
-    shallow_cm = np.array([
-        [125, 0, 3, 7],
-        [0, 7, 0, 2],
-        [4, 0, 455, 21],
-        [2, 0, 8, 326]
-    ])
-    
-    current_cm = np.array([
-        [130, 0, 1, 4],
-        [0, 8, 0, 1],
-        [2, 0, 461, 17],
-        [1, 0, 6, 329]
-    ])
-    
-    deep_cm = np.array([
-        [122, 0, 4, 9],
-        [0, 7, 0, 2],
-        [5, 0, 450, 25],
-        [3, 0, 10, 323]
-    ])
-    
-    class_names = ['Mild', 'Moderate', 'Non', 'VeryMild']
-    
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-    
-    cms = [shallow_cm, current_cm, deep_cm]
-    titles = ['Shallow CNN (2 conv)\n95.00%', 'Current CNN (3 conv)\n96.25%', 'Deep CNN (4 conv)\n94.17%']
-    
-    for ax, cm, title in zip(axes, cms, titles):
-        im = ax.imshow(cm, cmap='Blues')
-        
-        # Add labels
-        ax.set_xticks(range(len(class_names)))
-        ax.set_yticks(range(len(class_names)))
-        ax.set_xticklabels(class_names, rotation=45, ha='right')
-        ax.set_yticklabels(class_names)
-        
-        # Add values in cells
-        for i in range(len(class_names)):
-            for j in range(len(class_names)):
-                color = 'white' if cm[i, j] > cm.max() / 2 else 'black'
-                ax.text(j, i, str(cm[i, j]), ha='center', va='center', 
-                       color=color, fontsize=12, fontweight='bold')
-        
-        ax.set_title(title, fontsize=12, fontweight='bold')
-        ax.set_xlabel('Predicted')
-        ax.set_ylabel('Actual')
-    
-    plt.suptitle('Confusion Matrix Comparison Across CNN Architectures', fontsize=14, fontweight='bold')
-    plt.tight_layout()
-    plt.savefig('results/confusion_matrix_comparison.png', dpi=150)
-    plt.close()
-    print("Saved: results/confusion_matrix_comparison.png")
-
-def plot_per_class_comparison():
-    """Grouped bar chart of per-class accuracy for all three CNNs"""
-    
-    class_names = ['Mild_Demented', 'Moderate_Demented', 'Non_Demented', 'Very_Mild_Demented']
-    
-    # Per-class accuracies for each model (approximate based on results)
-    shallow_acc = [92.6, 77.8, 94.8, 97.0]
-    current_acc = [96.3, 88.9, 96.0, 97.9]
-    deep_acc = [90.4, 77.8, 93.8, 96.1]
-    
+    # ===== LEFT: Per-Class Metrics Grouped Bar Chart =====
     x = np.arange(len(class_names))
     width = 0.25
-    
-    fig, ax = plt.subplots(figsize=(12, 6))
-    
-    bars1 = ax.bar(x - width, shallow_acc, width, label='Shallow (2 conv)', color='#3498db')
-    bars2 = ax.bar(x, current_acc, width, label='Current (3 conv)', color='#2ecc71')
-    bars3 = ax.bar(x + width, deep_acc, width, label='Deep (4 conv)', color='#e74c3c')
-    
+
+    bars_p = ax1.bar(x - width, precision, width, label='Precision', color='#1a5276')
+    bars_r = ax1.bar(x, recall, width, label='Recall', color='#e67e22')
+    bars_f = ax1.bar(x + width, f1, width, label='F1-Score', color='#1e8449')
+
     # Add value labels
-    for bars in [bars1, bars2, bars3]:
+    for bars in [bars_p, bars_r, bars_f]:
         for bar in bars:
             height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, height + 0.5,
-                   f'{height:.1f}%', ha='center', va='bottom', fontsize=9, fontweight='bold')
-    
-    ax.set_xlabel('Class', fontsize=12)
-    ax.set_ylabel('Accuracy (%)', fontsize=12)
-    ax.set_title('Per-Class Accuracy Comparison Across CNN Architectures', fontsize=14, fontweight='bold')
-    ax.set_xticks(x)
-    ax.set_xticklabels(class_names, rotation=15, ha='right')
-    ax.set_ylim(70, 105)
-    ax.legend(loc='lower right')
-    ax.grid(axis='y', alpha=0.3)
-    
+            ax1.text(bar.get_x() + bar.get_width()/2, height + 0.005,
+                     f'{height:.2f}', ha='center', va='bottom', fontsize=9, fontweight='bold')
+
+    ax1.set_title('Per-Class Metrics', fontsize=13, fontweight='bold')
+    ax1.set_ylabel('Score', fontsize=11)
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(short_names, fontsize=10)
+    ax1.set_ylim(0, 1.12)
+    ax1.legend(loc='upper right', fontsize=10)
+    ax1.grid(axis='y', alpha=0.2)
+
+    # ===== RIGHT: Confusion Matrix =====
+    im = ax2.imshow(cm, cmap='Blues')
+    ax2.set_title(f'Confusion Matrix (Test Set, n={len(y_true)})', fontsize=13, fontweight='bold')
+
+    ax2.set_xticks(range(len(cm_labels)))
+    ax2.set_yticks(range(len(cm_labels)))
+    ax2.set_xticklabels(cm_labels, fontsize=10)
+    ax2.set_yticklabels(cm_labels, fontsize=10)
+    ax2.set_xlabel('Predicted', fontsize=11)
+    ax2.set_ylabel('Actual', fontsize=11)
+
+    # Add values in cells
+    for i in range(len(cm_labels)):
+        for j in range(len(cm_labels)):
+            color = 'white' if cm[i, j] > cm.max() / 2 else 'black'
+            ax2.text(j, i, str(cm[i, j]), ha='center', va='center',
+                     color=color, fontsize=13, fontweight='bold')
+
+    fig.colorbar(im, ax=ax2, shrink=0.8)
+
+    # Add overall accuracy annotation
+    fig.text(0.5, -0.02, f'Overall Test Accuracy: {test_accuracy:.2f}%',
+             ha='center', fontsize=13, fontweight='bold')
+
     plt.tight_layout()
-    plt.savefig('results/per_class_comparison.png', dpi=150)
+    plt.savefig(f'results/{save_name}.png', dpi=150, bbox_inches='tight')
     plt.close()
-    print("Saved: results/per_class_comparison.png")
-    
+    print(f"Saved: results/{save_name}.png")
+
+
+def plot_all_three_summary(all_results, class_names):
+    """Generate a single side-by-side comparison of all three models"""
+    short_names = ['Mild\nDemented', 'Moderate\nDemented', 'Non\nDemented', 'Very Mild\nDemented']
+    cm_labels = ['Mild', 'Moderate', 'Non', 'Very Mild']
+
+    fig, axes = plt.subplots(2, 3, figsize=(22, 12))
+    fig.suptitle('CNN Architecture Comparison — MRI Dementia Classification', fontsize=18, fontweight='bold')
+
+    for col, (model_name, data) in enumerate(all_results.items()):
+        precision = data['precision']
+        recall = data['recall']
+        f1 = data['f1']
+        cm = data['cm']
+        test_acc = data['test_accuracy']
+
+        ax_top = axes[0, col]
+        ax_bot = axes[1, col]
+
+        # Top row: Per-class metrics
+        x = np.arange(len(class_names))
+        width = 0.25
+
+        bars_p = ax_top.bar(x - width, precision, width, label='Precision', color='#1a5276')
+        bars_r = ax_top.bar(x, recall, width, label='Recall', color='#e67e22')
+        bars_f = ax_top.bar(x + width, f1, width, label='F1-Score', color='#1e8449')
+
+        for bars in [bars_p, bars_r, bars_f]:
+            for bar in bars:
+                height = bar.get_height()
+                ax_top.text(bar.get_x() + bar.get_width()/2, height + 0.005,
+                            f'{height:.2f}', ha='center', va='bottom', fontsize=7, fontweight='bold')
+
+        ax_top.set_title(f'{model_name}\nTest Accuracy: {test_acc:.2f}%', fontsize=12, fontweight='bold')
+        ax_top.set_ylabel('Score' if col == 0 else '', fontsize=10)
+        ax_top.set_xticks(x)
+        ax_top.set_xticklabels(short_names, fontsize=8)
+        ax_top.set_ylim(0, 1.15)
+        if col == 2:
+            ax_top.legend(loc='upper right', fontsize=8)
+        ax_top.grid(axis='y', alpha=0.2)
+
+        # Bottom row: Confusion matrix
+        im = ax_bot.imshow(cm, cmap='Blues')
+        ax_bot.set_xticks(range(len(cm_labels)))
+        ax_bot.set_yticks(range(len(cm_labels)))
+        ax_bot.set_xticklabels(cm_labels, fontsize=9)
+        ax_bot.set_yticklabels(cm_labels, fontsize=9)
+        ax_bot.set_xlabel('Predicted', fontsize=10)
+        ax_bot.set_ylabel('Actual' if col == 0 else '', fontsize=10)
+
+        for i in range(len(cm_labels)):
+            for j in range(len(cm_labels)):
+                color = 'white' if cm[i, j] > cm.max() / 2 else 'black'
+                ax_bot.text(j, i, str(cm[i, j]), ha='center', va='center',
+                            color=color, fontsize=12, fontweight='bold')
+
+    plt.tight_layout()
+    plt.savefig('results/all_models_comparison.png', dpi=150, bbox_inches='tight')
+    plt.close()
+    print("Saved: results/all_models_comparison.png")
+
+
 def generate_all():
-    """Generate all comparison visualizations"""
-    print("Generating CNN comparison visualizations...\n")
-    
-    plot_accuracy_comparison()
-    plot_architecture_complexity()
-    plot_accuracy_vs_depth()
-    plot_summary_table()
-    plot_confusion_matrices()
-    plot_per_class_comparison()
-    
+    """Load all three models and generate visualizations"""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    os.makedirs("results", exist_ok=True)
+
+    # Load data
+    print("Loading dataset...")
+    images, labels, class_names = load_dataset("data")
+    train_data, val_data, test_data = split_dataset(images, labels)
+    X_test, y_test = test_data
+
+    X_test_tensor = torch.FloatTensor(X_test).unsqueeze(1)
+    num_classes = len(class_names)
+
+    # Define model configs
+    models_config = [
+        {
+            'class': ShallowCNN,
+            'path': 'results/shallow_cnn_2_conv.pth',
+            'name': 'Shallow CNN (2 conv)',
+            'save_name': 'shallow_cnn_results'
+        },
+        {
+            'class': CurrentCNN,
+            'path': 'results/current_cnn_3_conv.pth',
+            'name': 'Current CNN (3 conv)',
+            'save_name': 'current_cnn_results'
+        },
+        {
+            'class': DeepCNN,
+            'path': 'results/deep_cnn_4_conv.pth',
+            'name': 'Deep CNN (4 conv)',
+            'save_name': 'deep_cnn_results'
+        },
+    ]
+
+    all_results = {}
+
+    for config in models_config:
+        print(f"\nEvaluating {config['name']}...")
+
+        # Load model
+        model = load_model(config['class'], config['path'], num_classes, device)
+        predictions = get_predictions(model, X_test_tensor, device)
+
+        # Compute metrics
+        test_accuracy = 100 * (predictions == y_test).sum() / len(y_test)
+        precision, recall, f1, support = precision_recall_fscore_support(y_test, predictions, average=None, zero_division=0)
+        cm = confusion_matrix(y_test, predictions)
+
+        print(f"  Test Accuracy: {test_accuracy:.2f}%")
+        print(classification_report(y_test, predictions, target_names=class_names))
+
+        # Generate individual chart
+        plot_model_results(y_test, predictions, class_names, config['name'], config['save_name'], test_accuracy)
+
+        # Store for combined chart
+        all_results[config['name']] = {
+            'test_accuracy': test_accuracy,
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+            'cm': cm
+        }
+
+    # Generate combined 3-across comparison
+    plot_all_three_summary(all_results, class_names)
+
     print("\nAll comparison visualizations saved to results/")
 
 
