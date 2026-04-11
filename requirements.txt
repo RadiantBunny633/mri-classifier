@@ -1,8 +1,6 @@
 numpy
 matplotlib
-nilearn
-nibabel
+pillow
 scikit-learn
 torch
 torchvision
-pillow

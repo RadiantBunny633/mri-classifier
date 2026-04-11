@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import sys
 import os
+import json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -136,6 +137,7 @@ def train_and_evaluate(model, model_name, train_loader, val_loader, test_loader,
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     
     best_val_accuracy = 0.0
+    best_model_state = None
     
     for epoch in range(num_epochs):
         # Training
@@ -179,6 +181,7 @@ def train_and_evaluate(model, model_name, train_loader, val_loader, test_loader,
         
         if val_accuracy > best_val_accuracy:
             best_val_accuracy = val_accuracy
+            best_model_state = model.state_dict().copy()
         
         print(f"Epoch [{epoch+1}/{num_epochs}] Train Acc: {train_accuracy:.2f}% Val Acc: {val_accuracy:.2f}%")
     
@@ -203,6 +206,11 @@ def train_and_evaluate(model, model_name, train_loader, val_loader, test_loader,
     print(f"  Best Validation Accuracy: {best_val_accuracy:.2f}%")
     print(f"  Test Accuracy: {test_accuracy:.2f}%")
     
+    # Save model
+    save_name = model_name.lower().replace(" ", "_").replace("(", "").replace(")", "")
+    torch.save(best_model_state, f"results/{save_name}.pth")
+    print(f"  Saved model to results/{save_name}.pth")
+    
     return {
         'name': model_name,
         'val_accuracy': best_val_accuracy,
@@ -214,6 +222,7 @@ def train_and_evaluate(model, model_name, train_loader, val_loader, test_loader,
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    os.makedirs("results", exist_ok=True)
     print(f"Using device: {device}")
     
     # Load data
@@ -266,6 +275,11 @@ def main():
     # Find best
     best = max(results, key=lambda x: x['test_accuracy'])
     print(f"\nBest Model: {best['name']} with {best['test_accuracy']:.2f}% test accuracy")
+    
+    # Save comparison results
+    with open('results/comparison_results.json', 'w') as f:
+        json.dump(results, f, indent=2)
+    print("\nSaved comparison results to results/comparison_results.json")
 
 
 if __name__ == "__main__":
