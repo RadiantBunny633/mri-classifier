@@ -6,15 +6,15 @@ A multi-class classification system for detecting Alzheimer's disease progressio
 
 ### CNN Architecture Comparison
 
-![CNN Comparison](<img width="3283" height="1771" alt="all_models_comparison" src="https://github.com/user-attachments/assets/1c33dce5-0e48-4af0-b862-367713c0633b" />)
+![CNN Comparison](results/all_models_comparison.png)
 
 ### CNN vs Random Forest
 
-![CNN vs RF](<img width="2686" height="1771" alt="cnn_vs_rf_comparison" src="https://github.com/user-attachments/assets/fca94f92-2f10-462d-b5aa-28b1a67557eb" />)
+![CNN vs RF](results/cnn_vs_rf_comparison.png)
 
 ### Dropout Training Curves
 
-![Dropout Curves](<img width="2386" height="889" alt="dropout_training_curves" src="https://github.com/user-attachments/assets/2bfac498-7e7f-4294-bae5-8e9c9c09ac1f" />)
+![Dropout Curves](results/dropout_training_curves.png)
 
 ## Dataset
 
