@@ -91,15 +91,16 @@ pip install -r requirements.txt
 ### Step 3: Set Up the Dataset
 
 Download the [Alzheimer's MRI Dataset](https://www.kaggle.com/datasets/tourist55/alzheimers-dataset-4-class-of-images) from Kaggle and organize the images in the `data/` directory:
-data/
-├── Mild_Demented/
-│ └── _.jpg
-├── Moderate_Demented/
-│ └── _.jpg
-├── Non_Demented/
-│ └── _.jpg
-└── Very_Mild_Demented/
-└── _.jpg
+
+    data/
+    ├── Mild_Demented/
+    │   └── *.jpg
+    ├── Moderate_Demented/
+    │   └── *.jpg
+    ├── Non_Demented/
+    │   └── *.jpg
+    └── Very_Mild_Demented/
+        └── *.jpg
 
 ### Step 4: Train and Evaluate the CNN
 
