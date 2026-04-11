@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import sys
 import os
+import json
 
 # Add src to path so we can import our modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -20,6 +21,7 @@ from model import MRIClassifier
 def train_model(num_epochs=20, batch_size=32, learning_rate=0.001):
     # Check if GPU available (faster training)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    os.makedirs("results", exist_ok=True)
     print(f"Using device: {device}")
     
     # Load data
@@ -32,6 +34,7 @@ def train_model(num_epochs=20, batch_size=32, learning_rate=0.001):
     train_data, val_data, test_data = split_dataset(images, labels)
     X_train, y_train = train_data
     X_val, y_val = val_data
+    X_test, y_test = test_data
     
     # Convert to PyTorch tensors
     # Add channel dimension (batch, channels, height, width)
@@ -42,6 +45,7 @@ def train_model(num_epochs=20, batch_size=32, learning_rate=0.001):
     
     print(f"Training samples: {len(X_train)}")
     print(f"Validation samples: {len(X_val)}")
+    print(f"Test samples: {len(X_test)}")
     
     # Create data loaders (handles batching)
     train_dataset = TensorDataset(X_train, y_train)
@@ -121,6 +125,32 @@ def train_model(num_epochs=20, batch_size=32, learning_rate=0.001):
     
     print("-" * 50)
     print(f"Training complete! Best validation accuracy: {best_val_accuracy:.2f}%")
+    
+    # Evaluate on test set
+    X_test_tensor = torch.FloatTensor(X_test).unsqueeze(1).to(device)
+    
+    model.eval()
+    with torch.no_grad():
+        outputs = model(X_test_tensor)
+        _, predictions = torch.max(outputs, 1)
+        predictions = predictions.cpu().numpy()
+    
+    test_accuracy = 100 * (predictions == y_test).sum() / len(y_test)
+    
+    print(f"Test Accuracy: {test_accuracy:.2f}%")
+    
+    # Save results
+    results = {
+        'test_accuracy': float(test_accuracy),
+        'val_accuracy': float(best_val_accuracy),
+        'class_names': class_names,
+        'predictions': predictions.tolist(),
+        'y_true': y_test.tolist()
+    }
+
+    with open('results/cnn_results.json', 'w') as f:
+        json.dump(results, f, indent=2)
+    print("Saved results to results/cnn_results.json")
     
     return model, class_names
 
