@@ -44,32 +44,32 @@ Best model: **Current CNN (3 conv layers)** at 98.12% test accuracy.
 
 ## Directory Structure
 
-mri-classifier/
-├── data/ # MRI images organized by class
-│ ├── Mild_Demented/
-│ ├── Moderate_Demented/
-│ ├── Non_Demented/
-│ └── Very_Mild_Demented/
-├── results/ # Saved models, metrics, and visualizations
-├── src/
-│ ├── preprocessing.py # Image loading, resizing, normalization
-│ ├── data_loader.py # Dataset loading and train/val/test splitting
-│ ├── model.py # CNN architecture (3 conv layers)
-│ ├── train.py # Training script for main CNN
-│ ├── evaluate.py # Evaluation metrics and classification report
-│ ├── visualize.py # Visualization generation for main CNN
-│ ├── model_comparison.py # Shallow vs Current vs Deep CNN comparison
-│ ├── visualize_comparison.py # Comparison visualizations across CNN architectures
-│ ├── dropout_comparison.py # With vs without dropout comparison + training curves
-│ ├── augmentation_comparison.py # With vs without data augmentation comparison
-│ ├── cnn_vs_rf_comparison.py # CNN vs Random Forest side-by-side comparison
-│ └── rf/
-│ ├── rf_model.py # Decision Tree + Random Forest
-│ ├── rf_data_loader.py # Data loading for RF pipeline
-│ ├── rf_train.py # RF training script
-│ └── rf_evaluate.py # RF evaluation and visualizations
-├── requirements.txt
-└── README.md
+    mri-classifier/
+    ├── data/                           # MRI images organized by class
+    │   ├── Mild_Demented/
+    │   ├── Moderate_Demented/
+    │   ├── Non_Demented/
+    │   └── Very_Mild_Demented/
+    ├── results/                        # Saved models, metrics, and visualizations
+    ├── src/
+    │   ├── preprocessing.py            # Image loading, resizing, normalization
+    │   ├── data_loader.py              # Dataset loading and train/val/test splitting
+    │   ├── model.py                    # CNN architecture (3 conv layers)
+    │   ├── train.py                    # Training script for main CNN
+    │   ├── evaluate.py                 # Evaluation metrics and classification report
+    │   ├── visualize.py                # Visualization generation for main CNN
+    │   ├── model_comparison.py         # Shallow vs Current vs Deep CNN comparison
+    │   ├── visualize_comparison.py     # Comparison visualizations across CNN architectures
+    │   ├── dropout_comparison.py       # With vs without dropout comparison + training curves
+    │   ├── augmentation_comparison.py  # With vs without data augmentation comparison
+    │   ├── cnn_vs_rf_comparison.py     # CNN vs Random Forest side-by-side comparison
+    │   └── rf/
+    │       ├── rf_model.py             # Decision Tree + Random Forest built from scratch
+    │       ├── rf_data_loader.py       # Data loading for RF pipeline
+    │       ├── rf_train.py             # RF training script
+    │       └── rf_evaluate.py          # RF evaluation and visualizations
+    ├── requirements.txt
+    └── README.md
 
 ## How to Run the Project
 
