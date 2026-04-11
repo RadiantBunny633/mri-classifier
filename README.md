@@ -18,7 +18,8 @@ A multi-class classification system for detecting Alzheimer's disease progressio
 
 ## Dataset
 
-- **Source:** [Kaggle Alzheimer's MRI Dataset](https://www.kaggle.com/datasets/tourist55/alzheimers-dataset-4-class-of-images)
+- **Source:** [Alzheimer's MRI Dataset]([https://www.kaggle.com/datasets/tourist55/alzheimers-dataset-4-class-of-images](https://www.kaggle.com/datasets/sachinkumar413/alzheimer-mri-dataset 
+))
 - **Total Images:** 6,400
 - **Classes:**
 
@@ -90,7 +91,7 @@ pip install -r requirements.txt
 
 ### Step 3: Set Up the Dataset
 
-Download the [Alzheimer's MRI Dataset](https://www.kaggle.com/datasets/tourist55/alzheimers-dataset-4-class-of-images) from Kaggle and organize the images in the `data/` directory:
+Download the [Alzheimer's MRI Dataset](https://www.kaggle.com/datasets/sachinkumar413/alzheimer-mri-dataset) from Kaggle and organize the images in the `data/` directory:
 
     data/
     ├── Mild_Demented/
