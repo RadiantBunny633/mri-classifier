@@ -1,23 +1,22 @@
 """
-RF — MRI Alzheimer's Classifier 
+RF — MRI Alzheimer's Classifier
 =======================================================================
 Loads the saved RF model and the held-out test set, then prints
 metrics and saves result files to results/.
 
 Usage:
-    python3 src/rf_evaluate.py
+    python3 src/rf/rf_evaluate.py
 """
 
 import os
 import sys
+import pickle
 import numpy as np
-import joblib
 import matplotlib.pyplot as plt
 
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,
-    ConfusionMatrixDisplay,
     roc_auc_score,
 )
 from sklearn.preprocessing import label_binarize
@@ -29,7 +28,7 @@ from rf_model import flatten_images, IMAGE_SIZE
 
 DATA_DIR     = "data"
 RESULTS_DIR  = "results"
-RF_SAVE_PATH = os.path.join(RESULTS_DIR, "rf_standalone_model.joblib")
+RF_SAVE_PATH = os.path.join(RESULTS_DIR, "rf_standalone_model.pkl")
 
 
 def print_metrics(y_test, y_pred, y_proba, class_names):
@@ -75,10 +74,23 @@ def print_metrics(y_test, y_pred, y_proba, class_names):
 
 def plot_confusion_matrix(cm, class_names):
     fig, ax = plt.subplots(figsize=(8, 7))
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
-    disp.plot(ax=ax, colorbar=True, cmap="Blues", values_format="d")
+    im = ax.imshow(cm, cmap='Blues')
+
+    ax.set_xticks(range(len(class_names)))
+    ax.set_yticks(range(len(class_names)))
+    ax.set_xticklabels(class_names, rotation=45, ha='right')
+    ax.set_yticklabels(class_names)
+    ax.set_xlabel('Predicted')
+    ax.set_ylabel('Actual')
     ax.set_title("RF Standalone — Confusion Matrix (Test Set)", fontsize=13, pad=12)
-    plt.xticks(rotation=45, ha="right")
+
+    for i in range(len(class_names)):
+        for j in range(len(class_names)):
+            color = 'white' if cm[i, j] > cm.max() / 2 else 'black'
+            ax.text(j, i, str(cm[i, j]), ha='center', va='center',
+                    color=color, fontsize=13, fontweight='bold')
+
+    plt.colorbar(im, ax=ax, shrink=0.8)
     plt.tight_layout()
     path = os.path.join(RESULTS_DIR, "rf_standalone_confusion_matrix.png")
     plt.savefig(path, dpi=150)
@@ -121,12 +133,12 @@ def plot_per_class_accuracy(y_test, y_pred, class_names):
 
 
 def plot_pixel_importance_heatmap(rf):
-    importances    = rf.feature_importances_                         # (16384,)
-    importance_map = importances.reshape(IMAGE_SIZE, IMAGE_SIZE)     # (128, 128)
+    importances    = rf.feature_importances_
+    importance_map = importances.reshape(IMAGE_SIZE, IMAGE_SIZE)
 
     fig, ax = plt.subplots(figsize=(6, 6))
     im = ax.imshow(importance_map, cmap="hot", interpolation="nearest")
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Gini Importance")
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Importance")
     ax.set_title(
         "RF Pixel Importance Heatmap\n(brighter = more discriminative)",
         fontsize=11,
@@ -140,12 +152,13 @@ def plot_pixel_importance_heatmap(rf):
 
 
 def evaluate_model():
-    # ── load RF ───────────────────────────────────────────────────────────────
     if not os.path.exists(RF_SAVE_PATH):
         print(f"No saved model found at '{RF_SAVE_PATH}'.")
         print("Run rf_train.py first.")
         return
-    rf = joblib.load(RF_SAVE_PATH)
+    
+    with open(RF_SAVE_PATH, 'rb') as f:
+        rf = pickle.load(f)
     print(f"Loaded RF model from '{RF_SAVE_PATH}'")
 
     print("Loading dataset...")
