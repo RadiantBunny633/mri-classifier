@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 def load_mri_image(filepath):
     """Load a single MRI image."""
-    img = Image.open(filepath).convert('L')  # Convert to grayscale
+    img = Image.open(filepath).convert('L')  # Convert to grayscale (pretty sure they're already grayscale, but just in case)
     return np.array(img)
 
 
@@ -24,7 +24,7 @@ def normalize_intensity(image):
 
 
 def resize_image(image, target_size=(128, 128)):
-    """Resize image to consistent dimensions."""
+    """Resize image to consistent dimensions. (also pretty sure this is redundant since the images are already 128x128, but just in case)"""
     img = Image.fromarray(image.astype(np.uint8))
     img_resized = img.resize(target_size)
     return np.array(img_resized)
